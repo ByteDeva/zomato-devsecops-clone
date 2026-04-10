@@ -1,45 +1,55 @@
 pipeline {
     agent any
 
-    environment {
-        ANYPOINT_CREDENTIALS = credentials('anypoint.credentials')
-    }
-
     stages {
-        stage('Unit Test') {
+
+        stage('Clone Code') {
             steps {
-                echo "Running Unit Tests..."
-                sh 'mvn clean test'
+                git 'https://github.com/ByteDeva/zomato-devsecops-clone.git'
             }
         }
 
-        stage('Deploy Standalone') {
+        stage('Install Dependencies') {
             steps {
-                echo "Deploying in Standalone mode..."
-                sh 'mvn deploy -P standalone'
+                bat 'npm install'
             }
         }
 
-        stage('Deploy to AnyPoint') {
+        stage('SonarQube Analysis') {
             steps {
-                echo "Deploying to Anypoint Platform..."
-                sh '''
-                mvn deploy -P arm \
-                -Darm.target.name=local-4.0.0-ee \
-                -Danypoint.username=${ANYPOINT_CREDENTIALS_USR} \
-                -Danypoint.password=${ANYPOINT_CREDENTIALS_PSW}
-                '''
+                script {
+                    def scannerHome = tool 'sonar-scanner'
+                    withSonarQubeEnv('sonar') {
+                        bat "${scannerHome}\\bin\\sonar-scanner.bat"
+                    }
+                }
             }
         }
 
-        stage('Deploy to CloudHub') {
+        stage('Build App') {
             steps {
-                echo "Deploying to CloudHub..."
-                sh '''
-                mvn deploy -P cloudhub \
-                -Dmule.version=4.0.0 \
-                -Danypoint.username=${ANYPOINT_CREDENTIALS_USR} \
-                -Danypoint.password=${ANYPOINT_CREDENTIALS_PSW}
+                bat 'npm run build'
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                bat 'docker build -t devadocker335/zomato-clone .'
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                bat 'docker push devadocker335/zomato-clone'
+            }
+        }
+
+        stage('Deploy Container') {
+            steps {
+                bat '''
+                docker stop zomato-container || true
+                docker rm zomato-container || true
+                docker run -d -p 3000:3000 --name zomato-container devadocker335/zomato-clone
                 '''
             }
         }
@@ -47,10 +57,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Deployment completed successfully!"
+            echo "✅ Pipeline completed successfully!"
         }
         failure {
-            echo "❌ Deployment failed! Check logs for errors."
+            echo "❌ Pipeline failed!"
         }
     }
 }

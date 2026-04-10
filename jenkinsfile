@@ -30,6 +30,9 @@ pipeline {
             steps {
                 dependencyCheck additionalArguments: '--scan .', odcInstallation: 'dependency-check'
                 dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+
+                // 🔥 FIX: archive HTML report
+                archiveArtifacts artifacts: '**/dependency-check-report.html', allowEmptyArchive: true
             }
         }
 
@@ -45,7 +48,87 @@ pipeline {
             }
         }
 
-        // 🔥 TRIVY SCAN ADDED
+        stage('Trivy Scan') {
+            steps {
+                bat 'trivy image --severity HIGH,CRITICAL devadocker335/zomato-clone'
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                bat 'docker push devadocker335/zomato-clone'
+            }
+        }
+
+        stage('Deploy Container') {
+            steps {
+                bat '''
+                docker stop zomato-container || exit 0
+                docker rm zomato-container || exit 0
+                docker run -d -p 3000:3000 --name zomato-container devadocker335/zomato-clone
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ FULL DevSecOps Pipeline Completed Successfully!"
+        }
+        failure {
+            echo "❌ Pipeline failed! Check logs."
+        }
+    }
+}pipeline {
+    agent any
+
+    stages {
+
+        stage('Clone Code') {
+            steps {
+                git 'https://github.com/ByteDeva/zomato-devsecops-clone.git'
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                bat 'npm install'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    def scannerHome = tool 'sonar-scanner'
+                    withSonarQubeEnv('sonar') {
+                        bat "${scannerHome}\\bin\\sonar-scanner.bat"
+                    }
+                }
+            }
+        }
+
+        stage('OWASP Dependency Check') {
+            steps {
+                dependencyCheck additionalArguments: '--scan .', odcInstallation: 'dependency-check'
+                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+
+                // 🔥 FIX: archive HTML report
+                archiveArtifacts artifacts: '**/dependency-check-report.html', allowEmptyArchive: true
+            }
+        }
+
+        stage('Build App') {
+            steps {
+                bat 'npm run build'
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                bat 'docker build -t devadocker335/zomato-clone .'
+            }
+        }
+
         stage('Trivy Scan') {
             steps {
                 bat 'trivy image --severity HIGH,CRITICAL devadocker335/zomato-clone'

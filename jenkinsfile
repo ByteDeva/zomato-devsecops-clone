@@ -26,6 +26,14 @@ pipeline {
             }
         }
 
+        // 🔥 NEW STAGE (OWASP)
+        stage('OWASP Dependency Check') {
+            steps {
+                dependencyCheck additionalArguments: '--scan .', odcInstallation: 'dependency-check'
+                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+            }
+        }
+
         stage('Build App') {
             steps {
                 bat 'npm run build'
@@ -47,8 +55,8 @@ pipeline {
         stage('Deploy Container') {
             steps {
                 bat '''
-                docker stop zomato-container || true
-                docker rm zomato-container || true
+                docker stop zomato-container || exit 0
+                docker rm zomato-container || exit 0
                 docker run -d -p 3000:3000 --name zomato-container devadocker335/zomato-clone
                 '''
             }

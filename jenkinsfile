@@ -15,6 +15,13 @@ pipeline {
             }
         }
 
+        // 🔥 NEW: Trivy File System Scan
+        stage('Trivy File Scan') {
+            steps {
+                bat 'trivy fs .'
+            }
+        }
+
         stage('SonarQube Analysis') {
             steps {
                 script {
@@ -26,12 +33,19 @@ pipeline {
             }
         }
 
+        // 🔥 NEW: Quality Gate (IMPORTANT)
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 2, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
         stage('OWASP Dependency Check') {
             steps {
-                dependencyCheck additionalArguments: '--scan .', odcInstallation: 'dependency-check'
+                dependencyCheck additionalArguments: '--scan . --format ALL', odcInstallation: 'dependency-check'
                 dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-
-                // 🔥 FIX: archive HTML report
                 archiveArtifacts artifacts: '**/dependency-check-report.html', allowEmptyArchive: true
             }
         }
@@ -48,9 +62,10 @@ pipeline {
             }
         }
 
-        stage('Trivy Scan') {
+        // 🔥 UPDATED: Strict Trivy Scan
+        stage('Trivy Image Scan') {
             steps {
-                bat 'trivy image --severity HIGH,CRITICAL devadocker335/zomato-clone'
+                bat 'trivy image --exit-code 1 --severity HIGH,CRITICAL devadocker335/zomato-clone'
             }
         }
 
@@ -96,6 +111,13 @@ pipeline {
             }
         }
 
+        // 🔥 NEW: Trivy File System Scan
+        stage('Trivy File Scan') {
+            steps {
+                bat 'trivy fs .'
+            }
+        }
+
         stage('SonarQube Analysis') {
             steps {
                 script {
@@ -107,12 +129,19 @@ pipeline {
             }
         }
 
+        // 🔥 NEW: Quality Gate (IMPORTANT)
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 2, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
         stage('OWASP Dependency Check') {
             steps {
-                dependencyCheck additionalArguments: '--scan .', odcInstallation: 'dependency-check'
+                dependencyCheck additionalArguments: '--scan . --format ALL', odcInstallation: 'dependency-check'
                 dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-
-                // 🔥 FIX: archive HTML report
                 archiveArtifacts artifacts: '**/dependency-check-report.html', allowEmptyArchive: true
             }
         }
@@ -129,9 +158,10 @@ pipeline {
             }
         }
 
-        stage('Trivy Scan') {
+        // 🔥 UPDATED: Strict Trivy Scan
+        stage('Trivy Image Scan') {
             steps {
-                bat 'trivy image --severity HIGH,CRITICAL devadocker335/zomato-clone'
+                bat 'trivy image --exit-code 1 --severity HIGH,CRITICAL devadocker335/zomato-clone'
             }
         }
 

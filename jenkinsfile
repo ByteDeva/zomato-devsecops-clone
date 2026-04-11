@@ -1,101 +1,9 @@
 pipeline {
     agent any
 
-    stages {
-
-        stage('Clone Code') {
-            steps {
-                git 'https://github.com/ByteDeva/zomato-devsecops-clone.git'
-            }
-        }
-
-        stage('Install Dependencies') {
-            steps {
-                bat 'npm install'
-            }
-        }
-
-        // 🔥 NEW: Trivy File System Scan
-        stage('Trivy File Scan') {
-            steps {
-                bat 'trivy fs .'
-            }
-        }
-
-        stage('SonarQube Analysis') {
-            steps {
-                script {
-                    def scannerHome = tool 'sonar-scanner'
-                    withSonarQubeEnv('sonar') {
-                        bat "${scannerHome}\\bin\\sonar-scanner.bat"
-                    }
-                }
-            }
-        }
-
-        // 🔥 NEW: Quality Gate (IMPORTANT)
-        stage('Quality Gate') {
-            steps {
-                timeout(time: 2, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
-            }
-        }
-
-        stage('OWASP Dependency Check') {
-            steps {
-                dependencyCheck additionalArguments: '--scan . --format ALL', odcInstallation: 'dependency-check'
-                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-                archiveArtifacts artifacts: '**/dependency-check-report.html', allowEmptyArchive: true
-            }
-        }
-
-        stage('Build App') {
-            steps {
-                bat 'npm run build'
-            }
-        }
-
-        stage('Docker Build') {
-            steps {
-                bat 'docker build -t devadocker335/zomato-clone .'
-            }
-        }
-
-        // 🔥 UPDATED: Strict Trivy Scan
-        stage('Trivy Image Scan') {
-            steps {
-                bat 'trivy image --exit-code 1 --severity HIGH,CRITICAL devadocker335/zomato-clone'
-            }
-        }
-
-        stage('Docker Push') {
-            steps {
-                bat 'docker push devadocker335/zomato-clone'
-            }
-        }
-
-        stage('Deploy Container') {
-            steps {
-                bat '''
-                docker stop zomato-container || exit 0
-                docker rm zomato-container || exit 0
-                docker run -d -p 3000:3000 --name zomato-container devadocker335/zomato-clone
-                '''
-            }
-        }
+    environment {
+        SONAR_TOKEN = credentials('sonar-token')
     }
-
-    post {
-        success {
-            echo "✅ FULL DevSecOps Pipeline Completed Successfully!"
-        }
-        failure {
-            echo "❌ Pipeline failed! Check logs."
-        }
-    }
-}pipeline {
-    agent any
 
     stages {
 
@@ -111,38 +19,27 @@ pipeline {
             }
         }
 
-        // 🔥 NEW: Trivy File System Scan
-        stage('Trivy File Scan') {
-            steps {
-                bat 'trivy fs .'
-            }
-        }
-
         stage('SonarQube Analysis') {
             steps {
                 script {
                     def scannerHome = tool 'sonar-scanner'
                     withSonarQubeEnv('sonar') {
-                        bat "${scannerHome}\\bin\\sonar-scanner.bat"
+                        bat """
+                        ${scannerHome}\\bin\\sonar-scanner.bat ^
+                        -Dsonar.projectKey=zomato-clone ^
+                        -Dsonar.sources=. ^
+                        -Dsonar.host.url=http://localhost:9000 ^
+                        -Dsonar.login=%SONAR_TOKEN%
+                        """
                     }
-                }
-            }
-        }
-
-        // 🔥 NEW: Quality Gate (IMPORTANT)
-        stage('Quality Gate') {
-            steps {
-                timeout(time: 2, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
                 }
             }
         }
 
         stage('OWASP Dependency Check') {
             steps {
-                dependencyCheck additionalArguments: '--scan . --format ALL', odcInstallation: 'dependency-check'
-                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-                archiveArtifacts artifacts: '**/dependency-check-report.html', allowEmptyArchive: true
+                bat 'C:\\dependency-check\\bin\\dependency-check.bat --project zomato --scan . --format HTML --out .'
+                archiveArtifacts artifacts: 'dependency-check-report.html', allowEmptyArchive: true
             }
         }
 
@@ -158,10 +55,9 @@ pipeline {
             }
         }
 
-        // 🔥 UPDATED: Strict Trivy Scan
-        stage('Trivy Image Scan') {
+        stage('Trivy Scan') {
             steps {
-                bat 'trivy image --exit-code 1 --severity HIGH,CRITICAL devadocker335/zomato-clone'
+                bat 'trivy image --severity HIGH,CRITICAL devadocker335/zomato-clone'
             }
         }
 

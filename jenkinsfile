@@ -38,7 +38,13 @@ pipeline {
 
         stage('OWASP Dependency Check') {
             steps {
-                bat 'C:\\dependency-check\\bin\\dependency-check.bat --project zomato --scan . --format HTML --out .'
+                bat '''
+                C:\\tools\\dependency-check\\bin\\dependency-check.bat ^
+                --project zomato ^
+                --scan . ^
+                --format HTML ^
+                --out .
+                '''
                 archiveArtifacts artifacts: 'dependency-check-report.html', allowEmptyArchive: true
             }
         }
@@ -55,9 +61,12 @@ pipeline {
             }
         }
 
-        stage('Trivy Scan') {
+        stage('Trivy Scan (HTML Report)') {
             steps {
-                bat 'trivy image --severity HIGH,CRITICAL devadocker335/zomato-clone'
+                bat '''
+                trivy image -f html -o trivy-report.html devadocker335/zomato-clone
+                '''
+                archiveArtifacts artifacts: 'trivy-report.html', allowEmptyArchive: true
             }
         }
 
